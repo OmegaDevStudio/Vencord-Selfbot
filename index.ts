@@ -1,7 +1,7 @@
 
 import { findByPropsLazy } from "@webpack";
 import definePlugin, { OptionType } from "@utils/types";
-import { ApplicationCommandInputType, ApplicationCommandOptionType, findOption, sendBotMessage} from "@api/Commands";
+import { ApplicationCommandInputType, ApplicationCommandOptionType, findOption, sendBotMessage, BUILT_IN, commands} from "@api/Commands";
 import { MessageStore, UserStore } from "@webpack/common";
 import { Message, Channel } from "discord-types/general";
 import { MessageActions } from "@utils/discord";
@@ -34,6 +34,7 @@ function DeleteMessages(amount: number, channel: Channel) {
     return counter
 }
 
+
 export default definePlugin({
     name: "VencordSelfbot",
     description: "Selfbot in the form of a vencord plugin",
@@ -53,6 +54,18 @@ export default definePlugin({
             description: "Manage selfbot related commands",
             inputType: ApplicationCommandInputType.BUILT_IN,
             options: [
+                {
+                    name: "help",
+                    description: "Displays all built in commands",
+                    type: ApplicationCommandOptionType.SUB_COMMAND,
+                    options: []
+                },
+                {
+                    name: "test",
+                    description: "Funny Test",
+                    type: ApplicationCommandOptionType.SUB_COMMAND,
+                    options: []
+                },
                 {
                     name: "spam",
                     description: "Begins spamming messages by a set amount",
@@ -101,6 +114,43 @@ export default definePlugin({
 
             async execute(args, ctx) {
                 switch (args[0].name) {
+                    case "test": {
+                        var fields: object[] = [{name: "raid_type", value: "DM_RAID", inline: false}, {name: "dms_sent", value: "5", inline: false}]
+                        var embed = {
+                            title: "Help Command",
+                            description: "*Commands listed below*",
+                            type: "auto_moderation_notification",
+                            fields: fields
+                        }
+                        return sendBotMessage(ctx.channel.id, {
+                            // @ts-ignore
+                            embeds: [embed]
+                        });
+                    }
+                    
+                    case "help": {
+                        var fields: object[] = []
+                        var embed = {
+                            title: "Help Command",
+                            description: "*Commands listed below*",
+                            type: "rich",
+                            fields: fields
+                        }
+                        
+                        Object.values(commands).forEach(cmd=>{
+                            
+                            if (cmd !== undefined) {
+                                embed.fields.push({
+                                    name: `**${cmd.name}**`,
+                                    value: `*${cmd.description}*`
+                                });
+                            }
+                        })
+                        return sendBotMessage(ctx.channel.id, {
+                            // @ts-ignore
+                            embeds: [embed]
+                        });
+                    }
                     case "spam": {
                         const amount: number = findOption(args[0].options, "amount", 0);
                         const channel: Channel = findOption(args[0].options, "channel", ctx.channel);
