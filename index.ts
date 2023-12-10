@@ -4,7 +4,7 @@ import definePlugin, { OptionType } from "@utils/types";
 import { ApplicationCommandInputType, ApplicationCommandOptionType, findOption, sendBotMessage, BUILT_IN, commands} from "@api/Commands";
 import { MessageStore, UserStore } from "@webpack/common";
 import { Message, Channel } from "discord-types/general";
-import { MessageActions } from "@utils/discord";
+import { MessageActions, fetchUserProfile, openUserProfile } from "@utils/discord";
 
 const token = findByPropsLazy("getToken");
 
@@ -83,6 +83,19 @@ export default definePlugin({
                     ]
                 },
                 {
+                    name: "whois",
+                    description: "Gathers information about a user",
+                    type: ApplicationCommandOptionType.SUB_COMMAND,
+                    options: [
+                        {
+                            name: "user",
+                            description: "User to lookup",
+                            type: ApplicationCommandOptionType.USER,
+                            required: true
+                        }
+                    ]
+                },
+                {
                     name: "spam",
                     description: "Begins spamming messages by a set amount",
                     type: ApplicationCommandOptionType.SUB_COMMAND,
@@ -139,16 +152,10 @@ export default definePlugin({
                     case "help": {
                         let fields: object[] = []
                         let embed = {
-                            title: "ⓘ  Help Command",
+                            title: "ⓘ  Vencord Selfbot",
                             description: "*Vencord commands are listed below*",
                             type: "rich",
                             fields: fields,
-                            video: {
-                                url: "https://cdn.discordapp.com/attachments/1001667507809165472/1182832531515654214/rapidsave.com_the_way_it_was_meant_zo_be-lu30qmncy05c1.mov?ex=658621a3&is=6573aca3&hm=5c93585301d47efc70c6cbb4608b86f4a2fc3453ca1841c40d15c5875cabdc02&",
-                                proxy_url: "https://cdn.discordapp.com/attachments/1001667507809165472/1182832531515654214/rapidsave.com_the_way_it_was_meant_zo_be-lu30qmncy05c1.mov?ex=658621a3&is=6573aca3&hm=5c93585301d47efc70c6cbb4608b86f4a2fc3453ca1841c40d15c5875cabdc02&",
-                                width: 480,
-                                height: 700,
-                            }
                         }
                         
                         Object.values(commands).forEach(cmd=>{
@@ -173,6 +180,61 @@ export default definePlugin({
                         await timeout(1000);
                         return location.reload()
                     }
+
+                    case "whois": {
+                        const id: string = findOption(args[0].options, "user", "");
+                        let user = await findByPropsLazy("getUser").getUser(id);
+                        let profile = await fetchUserProfile(id, {with_mutual_guilds: true, with_mutual_friends_count: true})
+                        let embed = {
+                            title: `WHOIS ${user.username}`,
+                            description: `${user.id}`,
+                            type: "rich",
+                            fields: []
+                        }
+
+                        for (let [key, value] of Object.entries(user)) {
+                            if (
+                                    key !== "username" &&
+                                    key !== "id" &&
+                                    key !== "isStaff" &&
+                                    key !== "isStaffPersonal" &&
+                                    key !== "hasAnyStaffLevel" &&
+                                    key !== "hasFlag" &&
+                                    key !== "guildMemberAvatars" &&
+                                    value !== null &&
+                                    value !== undefined &&
+                                    value !== ""
+                                ) {
+                                
+                                embed.fields.push({name: `⊕  **\`${key}\`**`, value: `*${value}*`});
+                                
+                            }
+                        }
+                        for (let [key, value] of Object.entries(profile)) {
+                            if (
+                                key !== "username" &&
+                                key !== "id" &&
+                                key !== "isStaff" &&
+                                key !== "isStaffPersonal" &&
+                                key !== "hasAnyStaffLevel" &&
+                                key !== "hasFlag" &&
+                                key !== "guildMemberAvatars" &&
+                                key !== "badges" &&
+                                value !== null &&
+                                value !== undefined &&
+                                value !== ""
+                            ) {
+   
+                                embed.fields.push({name: `⊕  **\`${key}\`**`, value: `*${value}*`});
+                            }
+                        }
+                        return sendBotMessage(ctx.channel.id, {
+                            // @ts-ignore
+                            embeds: [embed]
+                        });
+
+                    }
+
                     case "spam": {
                         const amount: number = findOption(args[0].options, "amount", 0);
                         const channel: Channel = findOption(args[0].options, "channel", ctx.channel);
