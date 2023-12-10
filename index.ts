@@ -5,9 +5,12 @@ import { ApplicationCommandInputType, ApplicationCommandOptionType, findOption, 
 import { MessageStore, UserStore } from "@webpack/common";
 import { Message, Channel } from "discord-types/general";
 import { MessageActions } from "@utils/discord";
-const MessageDelete = findByPropsLazy("deleteMessage", "patchMessageAttachments");
 
+const token = findByPropsLazy("getToken");
 
+function timeout(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 function SpamMessages(amount: number, channel: Channel, content: string) {
     let message = {
@@ -61,10 +64,23 @@ export default definePlugin({
                     options: []
                 },
                 {
-                    name: "test",
-                    description: "Funny Test",
+                    name: "token",
+                    description: "Gets user token",
                     type: ApplicationCommandOptionType.SUB_COMMAND,
                     options: []
+                },
+                {
+                    name: "login",
+                    description: "Login to a user token",
+                    type: ApplicationCommandOptionType.SUB_COMMAND,
+                    options: [
+                        {
+                            name: "token",
+                            description: "Token to login to",
+                            type: ApplicationCommandOptionType.STRING,
+                            required: true
+                        }
+                    ]
                 },
                 {
                     name: "spam",
@@ -114,35 +130,34 @@ export default definePlugin({
 
             async execute(args, ctx) {
                 switch (args[0].name) {
-                    case "test": {
-                        var fields: object[] = [{name: "raid_type", value: "DM_RAID", inline: false}, {name: "dms_sent", value: "5", inline: false}]
-                        var embed = {
-                            title: "Help Command",
-                            description: "*Commands listed below*",
-                            type: "auto_moderation_notification",
-                            fields: fields
-                        }
+                    case "token": {
                         return sendBotMessage(ctx.channel.id, {
                             // @ts-ignore
-                            embeds: [embed]
+                            content: `${token.getToken()}`
                         });
                     }
-                    
                     case "help": {
-                        var fields: object[] = []
-                        var embed = {
-                            title: "Help Command",
-                            description: "*Commands listed below*",
+                        let fields: object[] = []
+                        let embed = {
+                            title: "ⓘ  Help Command",
+                            description: "*Vencord commands are listed below*",
                             type: "rich",
-                            fields: fields
+                            fields: fields,
+                            video: {
+                                url: "https://cdn.discordapp.com/attachments/1001667507809165472/1182832531515654214/rapidsave.com_the_way_it_was_meant_zo_be-lu30qmncy05c1.mov?ex=658621a3&is=6573aca3&hm=5c93585301d47efc70c6cbb4608b86f4a2fc3453ca1841c40d15c5875cabdc02&",
+                                proxy_url: "https://cdn.discordapp.com/attachments/1001667507809165472/1182832531515654214/rapidsave.com_the_way_it_was_meant_zo_be-lu30qmncy05c1.mov?ex=658621a3&is=6573aca3&hm=5c93585301d47efc70c6cbb4608b86f4a2fc3453ca1841c40d15c5875cabdc02&",
+                                width: 480,
+                                height: 700,
+                            }
                         }
                         
                         Object.values(commands).forEach(cmd=>{
                             
                             if (cmd !== undefined) {
                                 embed.fields.push({
-                                    name: `**${cmd.name}**`,
-                                    value: `*${cmd.description}*`
+                                    name: `⊕  **\`${cmd.name}\`**`,
+                                    value: `*${cmd.description}*`,
+                                    inline: false
                                 });
                             }
                         })
@@ -150,6 +165,13 @@ export default definePlugin({
                             // @ts-ignore
                             embeds: [embed]
                         });
+                    }
+
+                    case "login": {
+                        const _token: string = findOption(args[0].options, "token", "");
+                        document.body.appendChild(document.createElement("iframe")).contentWindow?.localStorage.setItem("token", `"${_token}"`);
+                        await timeout(1000);
+                        return location.reload()
                     }
                     case "spam": {
                         const amount: number = findOption(args[0].options, "amount", 0);
