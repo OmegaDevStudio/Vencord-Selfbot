@@ -2,7 +2,7 @@
 import { findByPropsLazy } from "@webpack";
 import definePlugin, { OptionType } from "@utils/types";
 import { ApplicationCommandInputType, ApplicationCommandOptionType, findOption, sendBotMessage, BUILT_IN, commands} from "@api/Commands";
-import { MessageStore, UserStore } from "@webpack/common";
+import { FluxDispatcher, MessageStore, UserStore } from "@webpack/common";
 import { Message, Channel } from "discord-types/general";
 import { MessageActions, fetchUserProfile, openUserProfile } from "@utils/discord";
 
@@ -96,6 +96,31 @@ export default definePlugin({
                     ]
                 },
                 {
+                    name: "impersonate",
+                    description: "Impersonates a user, client side only",
+                    type: ApplicationCommandOptionType.SUB_COMMAND,
+                    options: [
+                        {
+                            name: "user",
+                            description: "User to impersonate",
+                            type: ApplicationCommandOptionType.USER,
+                            required: true
+                        },
+                        {
+                            name: "email",
+                            description: "Email to impersonate",
+                            type: ApplicationCommandOptionType.STRING,
+                            required: false
+                        },
+                        {
+                            name: "phone",
+                            description: "Phone number to impersonate",
+                            type: ApplicationCommandOptionType.STRING,
+                            required: false
+                        },
+                    ]
+                },
+                {
                     name: "spam",
                     description: "Begins spamming messages by a set amount",
                     type: ApplicationCommandOptionType.SUB_COMMAND,
@@ -183,13 +208,13 @@ export default definePlugin({
 
                     case "whois": {
                         const id: string = findOption(args[0].options, "user", "");
+                        let fields: object[] = [];
                         let user = await findByPropsLazy("getUser").getUser(id);
-                        let profile = await fetchUserProfile(id, {with_mutual_guilds: true, with_mutual_friends_count: true})
                         let embed = {
                             title: `WHOIS ${user.username}`,
                             description: `${user.id}`,
                             type: "rich",
-                            fields: []
+                            fields: fields
                         }
 
                         for (let [key, value] of Object.entries(user)) {
@@ -210,29 +235,60 @@ export default definePlugin({
                                 
                             }
                         }
-                        for (let [key, value] of Object.entries(profile)) {
-                            if (
-                                key !== "username" &&
-                                key !== "id" &&
-                                key !== "isStaff" &&
-                                key !== "isStaffPersonal" &&
-                                key !== "hasAnyStaffLevel" &&
-                                key !== "hasFlag" &&
-                                key !== "guildMemberAvatars" &&
-                                key !== "badges" &&
-                                value !== null &&
-                                value !== undefined &&
-                                value !== ""
-                            ) {
-   
-                                embed.fields.push({name: `⊕  **\`${key}\`**`, value: `*${value}*`});
+
+                        try {
+                            let profile = await fetchUserProfile(id, {with_mutual_guilds: true, with_mutual_friends_count: true})
+                            for (let [key, value] of Object.entries(profile)) {
+                                if (
+                                    key !== "username" &&
+                                    key !== "id" &&
+                                    key !== "isStaff" &&
+                                    key !== "isStaffPersonal" &&
+                                    key !== "hasAnyStaffLevel" &&
+                                    key !== "hasFlag" &&
+                                    key !== "guildMemberAvatars" &&
+                                    key !== "badges" &&
+                                    value !== null &&
+                                    value !== undefined &&
+                                    value !== ""
+                                ) {
+       
+                                    embed.fields.push({name: `⊕  **\`${key}\`**`, value: `*${value}*`});
+                                }
                             }
-                        }
+                            } catch {}
                         return sendBotMessage(ctx.channel.id, {
                             // @ts-ignore
                             embeds: [embed]
                         });
 
+                    }
+
+                    case "impersonate": {
+                        let user = findOption(args[0].options, "user", "");
+                        const email = findOption(args[0].options, "email", "chatic.gaming@gmail.com");
+                        const phone = findOption(args[0].options, "phone", "+447360251784");
+
+                        let new_user = await findByPropsLazy("getUser").getUser(user);
+                        let current_user = UserStore.getCurrentUser();
+                        for (let [key, value] of Object.entries(new_user)) {
+                            if (
+                                    key !== undefined && key !== null && value !== null && value !== undefined &&
+                                    key !== "isStaff" &&
+                                    key !== "isStaffPersonal" &&
+                                    key !== "hasAnyStaffLevel" &&
+                                    key !== "hasFlag" &&
+                                    key !== "guildMemberAvatars"
+                                ) {
+                                current_user[key] = value;
+                            }
+                        }
+                        current_user.phone = phone;
+                        current_user.email = email;
+                        return FluxDispatcher.dispatch({
+                            type: "USER_UPDATE",
+                            user: current_user,
+                        });
                     }
 
                     case "spam": {
