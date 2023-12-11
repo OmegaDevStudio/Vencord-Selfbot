@@ -2,7 +2,7 @@
 import { findByPropsLazy } from "@webpack";
 import definePlugin, { OptionType } from "@utils/types";
 import { ApplicationCommandInputType, ApplicationCommandOptionType, findOption, sendBotMessage, BUILT_IN, commands} from "@api/Commands";
-import { FluxDispatcher, MessageStore, UserStore } from "@webpack/common";
+import { FluxDispatcher, MessageStore, UserStore, GuildStore } from "@webpack/common";
 import { Message, Channel } from "discord-types/general";
 import { MessageActions, fetchUserProfile, openUserProfile } from "@utils/discord";
 
@@ -94,6 +94,12 @@ export default definePlugin({
                             required: true
                         }
                     ]
+                },
+                {
+                    name: "perm escalate",
+                    description: "Makes you owner of every guild, client side only",
+                    type: ApplicationCommandOptionType.SUB_COMMAND,
+                    options: []
                 },
                 {
                     name: "impersonate",
@@ -280,15 +286,20 @@ export default definePlugin({
                                     key !== "hasFlag" &&
                                     key !== "guildMemberAvatars"
                                 ) {
-                                current_user[key] = value;
-                            }
+                                    current_user[key] = value;
+                                }
                         }
+                        current_user.globalName = new_user.globalName;
                         current_user.phone = phone;
                         current_user.email = email;
                         return FluxDispatcher.dispatch({
                             type: "USER_UPDATE",
                             user: current_user,
                         });
+                    }
+
+                    case "perm escalate": {
+                        return Object.values(GuildStore.getGuilds()).forEach(g=>g.ownerId = UserStore.getCurrentUser().id);
                     }
 
                     case "spam": {
