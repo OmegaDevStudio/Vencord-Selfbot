@@ -289,6 +289,7 @@ export default definePlugin({
                                     current_user[key] = value;
                                 }
                         }
+                        // @ts-ignore
                         current_user.globalName = new_user.globalName;
                         current_user.phone = phone;
                         current_user.email = email;
