@@ -2,6 +2,7 @@
 import { findByPropsLazy } from "@webpack";
 import definePlugin, { OptionType } from "@utils/types";
 import { ApplicationCommandInputType, ApplicationCommandOptionType, findOption, sendBotMessage, BUILT_IN, commands} from "@api/Commands";
+import { MessageObject, addPreSendListener, removePreSendListener } from "@api/MessageEvents";
 import { FluxDispatcher, MessageStore, UserStore, GuildStore, UserProfileStore } from "@webpack/common";
 import { Message, Channel } from "discord-types/general";
 import { MessageActions, fetchUserProfile } from "@utils/discord";
@@ -29,6 +30,92 @@ function SpamMessages(amount: number, channel: Channel, content: string) {
     return counter
 }
 
+function addHiddenChar(content: string)  {
+    let invischar = "​";
+    let outstr = "";
+    for (var char of content) {
+        outstr += char + invischar;
+    }
+    return outstr
+}
+
+function addSimilarChar(content: string) {
+    let chars = {
+        "a": [
+            "\u{0430}"
+        ],
+        "c": [
+            "\u{0441}"
+        ],
+        "d": [
+            "\u{0501}"
+        ],
+        "e": [
+            "\u{0435}"
+        ],
+        "g": [
+            "\u{0121}"
+        ],
+        "h": [
+            "\u{04bb}"
+        ],
+        "i": [
+            "\u{0456}"
+        ],
+        "j": [
+            "\u{0458}"
+        ],
+        "k": [
+            "\u{03ba}"
+        ],
+        "l": [
+            "\u{1e37}"
+        ],
+        "n": [
+            "\u{0578}"
+        ],
+        "o": [
+            "\u{043e}",
+        ],
+        "p": [
+            "\u{0440}"
+        ],
+        "q": [
+            "\u{0566}"
+        ],
+        "s": [
+            "\u{0282}"
+        ],
+        "u": [
+            "\u{03c5}",
+        ],
+        "v": [
+            "\u{03bd}",
+        ],
+        "x": [
+            "\u{0445}",
+        ],
+        "y": [
+            "\u{0443}",
+        ],
+        "z": [
+            "\u{017c}"
+        ]
+    }
+    let outstr = "";
+    for (var char of content) {
+        try {
+            let simchars = chars[char];
+            outstr += simchars[0];
+        }
+        catch {
+            outstr += char
+        }
+    }
+    return outstr
+}
+
+
 function DeleteMessages(amount: number, channel: Channel) {
     const meId = UserStore.getCurrentUser().id;
     const messages: Message[] = MessageStore.getMessages(channel.id)._array.filter((m: Message)=> m.author.id === meId).reverse().slice(0, amount);
@@ -50,6 +137,18 @@ export default definePlugin({
             description: "If enabled, gain max permissions for all servers upon load, client side only.",
             type: OptionType.BOOLEAN,
             default: false
+        },
+        invisChar: {
+            name: "Anti Auto-Mod Type 1",
+            description: "Adds invisible characters in between characters",
+            type: OptionType.BOOLEAN,
+            default: false
+        },
+        simChar: {
+            name: "Anti Auto-Mod Type 2",
+            description: "Attempts to use similar characters to A-Z",
+            type: OptionType.BOOLEAN,
+            default: false
         }
     },
     async start() {
@@ -60,6 +159,24 @@ export default definePlugin({
         });})}
 
         }, 2000);
+        this.presend = addPreSendListener((_, msg) => this.onSend(msg));
+    },
+    stop() {
+        removePreSendListener(this.presend)
+    },
+
+    onSend(msg: MessageObject) {
+        // Only run when it's enabled
+        if (Settings.plugins.VencordSelfbot.invisChar) {
+            msg.content = addHiddenChar(msg.content)
+        }
+        else if (Settings.plugins.VencordSelfbot.simChar) {
+            msg.content = addSimilarChar(msg.content)
+        }
+        else if (Settings.plugins.VencordSelfbot.invisChar && Settings.plugins.VencordSelfbot.simChar) {
+            msg.content = addSimilarChar(msg.content);
+            msg.content = addHiddenChar(msg.content);
+        }
     },
     commands: [
         {
@@ -88,6 +205,25 @@ export default definePlugin({
                             name: "token",
                             description: "Token to login to",
                             type: ApplicationCommandOptionType.STRING,
+                            required: true
+                        }
+                    ]
+                },
+                {
+                    name: "anti automod",
+                    description: "Attempts to bypass automod features",
+                    type: ApplicationCommandOptionType.SUB_COMMAND,
+                    options: [
+                        {
+                            name: "invisible characters",
+                            description: "Uses inivisible characters to bypass",
+                            type: ApplicationCommandOptionType.BOOLEAN,
+                            required: true
+                        },
+                        {
+                            name: "similar characters",
+                            description: "Uses similar characters to bypass",
+                            type: ApplicationCommandOptionType.BOOLEAN,
                             required: true
                         }
                     ]
@@ -220,6 +356,14 @@ export default definePlugin({
                         document.body.appendChild(document.createElement("iframe")).contentWindow?.localStorage.setItem("token", `"${_token}"`);
                         await timeout(1000);
                         return location.reload()
+                    }
+
+                    case "anti automod": {
+                        let invis_char: boolean = findOption(args[0].options, "invisible characters", !Settings.plugins.VencordSelfbot.invisChar);
+                        let similar_char: boolean = findOption(args[0].options, "similar characters", !Settings.plugins.VencordSelfbot.simChar);
+                        Settings.plugins.VencordSelfbot.invisChar = invis_char;
+                        Settings.plugins.VencordSelfbot.simChar = similar_char;
+                        return
                     }
 
                     case "whois": {
