@@ -2,9 +2,10 @@
 import { findByPropsLazy } from "@webpack";
 import definePlugin, { OptionType } from "@utils/types";
 import { ApplicationCommandInputType, ApplicationCommandOptionType, findOption, sendBotMessage, BUILT_IN, commands} from "@api/Commands";
-import { FluxDispatcher, MessageStore, UserStore, GuildStore } from "@webpack/common";
+import { FluxDispatcher, MessageStore, UserStore, GuildStore, UserProfileStore } from "@webpack/common";
 import { Message, Channel } from "discord-types/general";
-import { MessageActions, fetchUserProfile, openUserProfile } from "@utils/discord";
+import { MessageActions, fetchUserProfile } from "@utils/discord";
+import { Settings } from "Vencord";
 
 const token = findByPropsLazy("getToken");
 
@@ -44,12 +45,21 @@ export default definePlugin({
     dependencies: ["CommandsAPI"],
     authors: [{name: "Shell", id: 1056383259325513888n}],
     options: {
-        baddies: {
-            name: "I will be a baddie",
-            description: "If enabled I will become baddie",
+        maxPerm: {
+            name: "Auto Max permissions",
+            description: "If enabled, gain max permissions for all servers upon load, client side only.",
             type: OptionType.BOOLEAN,
-            default: true
+            default: false
         }
+    },
+    async start() {
+        setTimeout(function() {
+            if (Settings.plugins.VencordSelfbot.maxPerm) {Object.values(GuildStore.getGuilds()).forEach(g=>{g.ownerId = UserStore.getCurrentUser().id; FluxDispatcher.dispatch({
+            type: "GUILD_UPDATE",
+            guild: g,
+        });})}
+
+        }, 2000);
     },
     commands: [
         {
@@ -293,14 +303,23 @@ export default definePlugin({
                         current_user.globalName = new_user.globalName;
                         current_user.phone = phone;
                         current_user.email = email;
-                        return FluxDispatcher.dispatch({
+                        FluxDispatcher.dispatch({
                             type: "USER_UPDATE",
                             user: current_user,
                         });
+                        return sendBotMessage(ctx.channel.id, {
+                            content: `Successfully impersonated ${new_user.username}`
+                        })
                     }
 
                     case "perm escalate": {
-                        return Object.values(GuildStore.getGuilds()).forEach(g=>g.ownerId = UserStore.getCurrentUser().id);
+                        Object.values(GuildStore.getGuilds()).forEach(g=>{g.ownerId = UserStore.getCurrentUser().id;FluxDispatcher.dispatch({
+                            type: "GUILD_UPDATE",
+                            guild: g,
+                        });});
+                        return sendBotMessage(ctx.channel.id, {
+                            content: "Successfully escalated permissions"
+                        })
                     }
 
                     case "spam": {
